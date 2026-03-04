@@ -1,121 +1,295 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="id">
 <head>
-<meta charset="utf-8">
-<title>KMZ Rename Placemark</title>
-<link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Rename Placemark KMZ</title>
+
+  <!-- CSS: gaya kiri-atas -->
+  <style>
+    :root{
+      --bg1:#f6f9ff;
+      --bg2:#eef5ff;
+      --card:#ffffff;
+      --stroke:#b7d2ff;
+      --stroke2:#d7e7ff;
+      --text:#1b2b44;
+      --muted:#5c6f8a;
+
+      --btn1:#49a85a;
+      --btn2:#2f8a40;
+      --btnStroke:#277236;
+
+      --shadow: 0 14px 40px rgba(20, 60, 120, .18);
+      --shadow2: 0 6px 18px rgba(20, 60, 120, .14);
+    }
+
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{
+      margin:0;
+      font-family: system-ui, -apple-system, Segoe UI, Roboto, Arial, sans-serif;
+      color:var(--text);
+      background:
+        radial-gradient(1200px 700px at 20% 20%, #ffffff 0%, var(--bg2) 45%, var(--bg1) 100%);
+      display:flex;
+      align-items:flex-start;
+      justify-content:center;
+      padding:42px 16px;
+    }
+
+    .container{width:min(920px, 100%)}
+
+    .card{
+      background: linear-gradient(180deg, #ffffff 0%, #fbfdff 100%);
+      border: 2px solid var(--stroke);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 22px 22px 18px;
+    }
+
+    .card-inner{
+      background: linear-gradient(180deg, #f6fbff 0%, #f1f7ff 100%);
+      border: 1px solid var(--stroke2);
+      border-radius: 14px;
+      padding: 16px 16px 14px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+    }
+
+    h1{
+      margin: 0 0 14px;
+      text-align:center;
+      font-size: 28px;
+      letter-spacing:.2px;
+      color:#223a5a;
+    }
+
+    .rules{
+      margin:0;
+      color:var(--muted);
+      font-size:14px;
+      line-height:1.55;
+    }
+    .rules b, .rules code{color:#233a5b}
+    .rules code{
+      background: rgba(255,255,255,.9);
+      border: 1px solid rgba(183,210,255,.7);
+      border-radius: 8px;
+      padding: 2px 7px;
+    }
+
+    .row{
+      margin-top: 16px;
+      display:flex;
+      gap: 14px;
+      flex-wrap:wrap;
+      align-items:center;
+      justify-content:space-between;
+    }
+
+    .filebox{
+      flex: 1 1 360px;
+      display:flex;
+      align-items:center;
+      gap:10px;
+      background: linear-gradient(180deg,#ffffff 0%, #f2f7ff 100%);
+      border: 1px solid var(--stroke2);
+      border-radius: 12px;
+      padding: 10px 12px;
+      box-shadow: var(--shadow2);
+    }
+
+    input[type="file"]{
+      width:100%;
+      font-size:14px;
+    }
+
+    button.primary{
+      flex: 0 0 auto;
+      border: 1px solid var(--btnStroke);
+      background: linear-gradient(180deg, var(--btn1) 0%, var(--btn2) 100%);
+      color:#fff;
+      font-weight:800;
+      font-size:15px;
+      padding: 12px 18px;
+      border-radius: 12px;
+      box-shadow: 0 10px 18px rgba(46, 138, 64, .25);
+      cursor:pointer;
+      transition: transform .06s ease, filter .15s ease, opacity .15s ease;
+    }
+
+    button.primary:hover{filter:brightness(1.03)}
+    button.primary:active{transform: translateY(1px)}
+    button.primary:disabled{
+      opacity:.55;
+      cursor:not-allowed;
+      filter:saturate(.6);
+    }
+
+    .status{
+      margin-top: 12px;
+      font-size: 14px;
+      color: var(--muted);
+      white-space:pre-wrap;
+    }
+    .status.ok{color:#1f7a39}
+    .status.err{color:#b00020}
+
+    .footer{
+      margin-top: 14px;
+      text-align:center;
+      color:#6a7f98;
+      font-size:12.5px;
+    }
+    .badge{
+      display:inline-flex;
+      gap:8px;
+      align-items:center;
+      padding:6px 10px;
+      border-radius: 999px;
+      background: rgba(255,255,255,.75);
+      border: 1px solid rgba(183,210,255,.75);
+    }
+  </style>
+
+  <!-- JSZip CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
 </head>
 
-<body style="font-family:Arial; padding:30px">
+<body>
+  <div class="container">
+    <div class="card">
+      <h1>Rename Placemark di KMZ</h1>
 
-<h2>Rename Placemark KMZ</h2>
+      <div class="card-inner">
+        <p class="rules">
+          <b>Aturan:</b>
+          hapus prefix <code>No</code>/<code>No.</code> (case-insensitive), hilangkan tanda baca di depan (<code>.,;:</code>).
+          Jika hasilnya <b>angka murni 1–9</b> → jadi <b>01–09</b>.
+          Jika ada huruf/simbol (mis. <b>4b</b>, <b>7/1b</b>, <b>b10</b>) → tidak dipadding, tapi huruf jadi <b>UPPERCASE</b>.
+          Popup foto/HTML di <code>&lt;description&gt;</code> dan file gambar di KMZ tetap.
+        </p>
 
-<input type="file" id="fileInput" accept=".kmz">
-<button onclick="processKMZ()">Proses</button>
+        <div class="row">
+          <div class="filebox">
+            <input id="fileInput" type="file" accept=".kmz" />
+          </div>
 
-<p id="status"></p>
+          <button id="runBtn" class="primary" disabled>Proses &amp; Buat KMZ Baru</button>
+        </div>
+
+        <div id="status" class="status"></div>
+      </div>
+
+      <div class="footer">
+        <span class="badge">Powered by JSZip</span>
+      </div>
+    </div>
+  </div>
 
 <script>
+  const fileInput = document.getElementById("fileInput");
+  const runBtn = document.getElementById("runBtn");
+  const statusEl = document.getElementById("status");
 
-function normalizeName(name){
+  let kmzFile = null;
 
-    name = (name ?? "").trim()
+  fileInput.addEventListener("change", () => {
+    kmzFile = fileInput.files && fileInput.files.length ? fileInput.files[0] : null;
+    runBtn.disabled = !kmzFile;
+    statusEl.className = "status";
+    statusEl.textContent = kmzFile ? `File dipilih: ${kmzFile.name}` : "";
+  });
 
-    //hapus prefix No / No.
-    name = name.replace(/^\s*no\.?\s*/i,"").trim()
+  function normalizeName(name){
+    name = (name ?? "").trim();
 
-    //hapus tanda baca depan
-    name = name.replace(/^[\s\.,;:]+/g,"").trim()
+    // hapus prefix No / No.
+    name = name.replace(/^\s*no\.?\s*/i,"").trim();
 
-    //uppercase huruf
-    name = name.toUpperCase()
+    // hapus tanda baca di depan (.,;:)
+    name = name.replace(/^[\s\.,;:]+/g,"").trim();
 
-    //jika angka 1 digit di depan + huruf
-    let match = name.match(/^([0-9])([A-Z].*)$/)
+    // uppercase
+    name = name.toUpperCase();
 
-    if(match){
-        name = "0" + match[1] + match[2]
-    }
-
-    //jika angka murni 1 digit
+    // padding hanya jika angka murni 1 digit (1-9)
     if(/^[1-9]$/.test(name)){
-        name = "0" + name
+      return "0" + name;
     }
 
-    return name
-}
-
-async function processKMZ(){
-
-    let file = document.getElementById("fileInput").files[0]
-
-    if(!file){
-        alert("Pilih file KMZ dulu")
-        return
+    // padding jika format: 1A, 4B, 7C (angka 1 digit + huruf langsung)
+    // No. 4b -> 04B
+    const m = name.match(/^([1-9])([A-Z]+)$/);
+    if (m) {
+      return "0" + m[1] + m[2];
     }
 
-    document.getElementById("status").innerText="Processing..."
+    // selain itu biarkan (contoh: B10, 10B, 7/1B, 12, 101M)
+    return name;
+  }
 
-    let zip = await JSZip.loadAsync(file)
+  async function processKMZ(){
+    if(!kmzFile){ alert("Pilih file KMZ dulu"); return; }
+    if(typeof JSZip === "undefined"){ alert("JSZip tidak terbaca."); return; }
 
-    let kmlFile=null
+    runBtn.disabled = true;
+    statusEl.className = "status";
+    statusEl.textContent = "Memproses...";
 
-    for(let filename in zip.files){
+    try{
+      const zip = await JSZip.loadAsync(kmzFile);
 
-        if(filename.toLowerCase().endsWith(".kml")){
-            kmlFile = filename
-            break
+      // cari KML (prioritas doc.kml)
+      const kmlPaths = Object.keys(zip.files).filter(p => p.toLowerCase().endsWith(".kml"));
+      if(!kmlPaths.length) throw new Error("Tidak menemukan file .kml di dalam KMZ.");
+
+      const kmlPath = kmlPaths.find(p => p.toLowerCase().endsWith("doc.kml")) || kmlPaths[0];
+      const kmlText = await zip.file(kmlPath).async("string");
+
+      const xml = new DOMParser().parseFromString(kmlText,"application/xml");
+      if(xml.querySelector("parsererror")) throw new Error("KML tidak valid / gagal parse.");
+
+      const placemarks = Array.from(xml.getElementsByTagName("Placemark"));
+      let changed = 0;
+
+      for(const pm of placemarks){
+        const nameEl = pm.getElementsByTagName("name")[0];
+        if(!nameEl) continue;
+
+        const oldName = (nameEl.textContent ?? "").trim();
+        const newName = normalizeName(oldName);
+
+        if(newName !== oldName){
+          nameEl.textContent = newName;
+          changed++;
         }
+      }
 
+      zip.file(kmlPath, new XMLSerializer().serializeToString(xml));
+
+      const outBlob = await zip.generateAsync({type:"blob"});
+      const outName = kmzFile.name.replace(/\.kmz$/i,"") + "_renamed.kmz";
+
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(outBlob);
+      a.download = outName;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      setTimeout(()=>URL.revokeObjectURL(a.href), 2000);
+
+      statusEl.className = "status ok";
+      statusEl.textContent = `Selesai ✅\nPlacemarks: ${placemarks.length}\nBerubah: ${changed}\nKML: ${kmlPath}`;
+    }catch(e){
+      statusEl.className = "status err";
+      statusEl.textContent = "Error: " + (e.message || String(e));
+    }finally{
+      runBtn.disabled = false;
     }
+  }
 
-    if(!kmlFile){
-        alert("KML tidak ditemukan")
-        return
-    }
-
-    let kmlText = await zip.file(kmlFile).async("string")
-
-    let parser = new DOMParser()
-    let xml = parser.parseFromString(kmlText,"text/xml")
-
-    let placemarks = xml.getElementsByTagName("Placemark")
-
-    for(let p of placemarks){
-
-        let nameNode = p.getElementsByTagName("name")[0]
-
-        if(!nameNode) continue
-
-        let oldName = nameNode.textContent
-        let newName = normalizeName(oldName)
-
-        nameNode.textContent = newName
-
-    }
-
-    let serializer = new XMLSerializer()
-    let newKML = serializer.serializeToString(xml)
-
-    zip.file(kmlFile,newKML)
-
-    let blob = await zip.generateAsync({type:"blob"})
-
-    let a=document.createElement("a")
-    a.href=URL.createObjectURL(blob)
-    a.download="renamed.kmz"
-    a.click()
-
-    document.getElementById("status").innerText="Selesai ✔"
-}
-
-    
+  runBtn.addEventListener("click", processKMZ);
 </script>
-
 </body>
-
 </html>
-
-
-
