@@ -18,21 +18,31 @@
 <script>
 
 function normalizeName(name){
-    name = (name ?? "").trim();
 
-    // hapus prefix No / No. / no / no.
-    name = name.replace(/^\s*no\.?\s*/i, "").trim();
+    name = (name ?? "").trim()
 
-    // hapus tanda baca di DEPAN (.,;: - dan spasi)
-    // contoh ";B11" -> "B11", ". 7" -> "7"
-    name = name.replace(/^[\s\.,;:]+/g, "").trim();
+    //hapus prefix No / No.
+    name = name.replace(/^\s*no\.?\s*/i,"").trim()
 
-    // padding hanya jika angka murni 1 digit (1-9)
-    if(/^[1-9]$/.test(name)){
-        name = "0" + name;
+    //hapus tanda baca depan
+    name = name.replace(/^[\s\.,;:]+/g,"").trim()
+
+    //uppercase huruf
+    name = name.toUpperCase()
+
+    //jika angka 1 digit di depan + huruf
+    let match = name.match(/^([0-9])([A-Z].*)$/)
+
+    if(match){
+        name = "0" + match[1] + match[2]
     }
 
-    return name;
+    //jika angka murni 1 digit
+    if(/^[1-9]$/.test(name)){
+        name = "0" + name
+    }
+
+    return name
 }
 
 async function processKMZ(){
@@ -103,4 +113,5 @@ async function processKMZ(){
 </script>
 
 </body>
+
 </html>
