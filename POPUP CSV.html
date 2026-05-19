@@ -1,0 +1,60 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Generate CSV ZIP</title>
+  <link rel="stylesheet" href="./styles popup csv.css" />
+</head>
+<body>
+  <div class="wrap">
+    <header class="card">
+      <h1>Generate CSV ZIP</h1>
+      <p class="muted">
+        Upload <b>MASTER POP UP.xlsx</b> lalu download ZIP berisi HOME, HOME-BIZ, FAT, FDT, dan POLE.
+      </p>
+    </header>
+
+    <section class="card">
+      <div class="grid">
+        <div>
+          <label class="label">1) Pilih file Excel Master Pop Up (.xlsx)</label>
+          <input id="file" type="file" accept=".xlsx,.xls" />
+          <div class="hint">Sheet: <b>Master Data</b> atau sheet pertama.</div>
+        </div>
+
+        <div>
+          <label class="label">2) Nama folder area (opsional)</label>
+          <input id="areaName" type="text" placeholder="Contoh: BABAT JERAWAT" />
+          <div class="hint">Jika kosong pakai <b>ID_Area</b> / nama file.</div>
+        </div>
+
+        <div>
+          <label class="label">3) Generate CSV</label>
+          <button id="btn" class="btn" disabled>Generate ZIP</button>
+          <div id="status" class="hint"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="card">
+      <h2>Preview</h2>
+      <div class="preview">
+        <div class="kv"><span>HOME</span><b id="cHome">-</b></div>
+        <div class="kv"><span>HOME-BIZ</span><b id="cHomeBiz">-</b></div>
+        <div class="kv"><span>FAT</span><b id="cFat">-</b></div>
+        <div class="kv"><span>FDT</span><b id="cFdt">-</b></div>
+        <div class="kv"><span>POLE</span><b id="cPole">-</b></div>
+      </div>
+      <p class="hint">
+        Catatan: kalau kolom <b>FAT ID/NETWORK ID</b> berisi beberapa value dipisah koma, POLE akan diduplikasi sesuai jumlah value tersebut.
+      </p>
+    </section>
+  </div>
+
+  <script src="https://unpkg.com/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <script src="./app popup csv.js"></script>
+</body>
+</html>
