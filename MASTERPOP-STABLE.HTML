@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <title>Master Pop Up Generator (STABLE)</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/xlsx/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+
+  <style>
+    :root {
+      --bg: #0b1118;
+      --panel: #111a24;
+      --panel-2: #0f1720;
+      --text: #f8fafc;
+      --muted: #9ca3af;
+      --border: #293545;
+      --green: #34d058;
+      --green-dark: #22c55e;
+      --danger: #ef4444;
+      --shadow: 0 24px 70px rgba(0, 0, 0, 0.42);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      min-height: 100vh;
+      margin: 0;
+      font-family: Arial, Helvetica, sans-serif;
+      background:
+        radial-gradient(circle at top left, rgba(34, 197, 94, 0.12), transparent 32%),
+        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.10), transparent 36%),
+        var(--bg);
+      color: var(--text);
+      padding: 38px 20px;
+    }
+
+    .app {
+      width: min(560px, 100%);
+      margin: 0 auto;
+      padding: 30px;
+      border: 1px solid var(--border);
+      border-radius: 22px;
+      background: linear-gradient(180deg, var(--panel), var(--panel-2));
+      box-shadow: var(--shadow);
+    }
+
+    h2 {
+      margin: 0 0 26px;
+      text-align: center;
+      font-size: 26px;
+      letter-spacing: -0.5px;
+    }
+
+    h3 {
+      margin: 28px 0 14px;
+      color: var(--green);
+      font-size: 18px;
+    }
+
+    input {
+      display: block;
+      width: 100%;
+      margin: 10px 0;
+      padding: 13px 15px;
+      color: var(--text);
+      background: #121c27;
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      outline: none;
+      font-size: 15px;
+      transition: border-color 0.18s ease, box-shadow 0.18s ease, background 0.18s ease;
+    }
+
+    input::placeholder {
+      color: var(--muted);
+    }
+
+    input:hover {
+      border-color: #3b4a5e;
+      background: #142130;
+    }
+
+    input:focus {
+      border-color: var(--green);
+      box-shadow: 0 0 0 3px rgba(52, 208, 88, 0.15);
+    }
+
+    input[type="file"] {
+      cursor: pointer;
+      color: var(--muted);
+    }
+
+    input[type="file"]::file-selector-button {
+      margin-right: 12px;
+      padding: 8px 12px;
+      border: 0;
+      border-radius: 8px;
+      background: #1f2937;
+      color: var(--text);
+      cursor: pointer;
+    }
+
+    input[type="file"]::file-selector-button:hover {
+      background: #273449;
+    }
+
+    button {
+      width: 100%;
+      margin-top: 18px;
+      padding: 14px 24px;
+      border: none;
+      border-radius: 12px;
+      background: linear-gradient(135deg, var(--green), var(--green-dark));
+      color: #052e16;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      box-shadow: 0 12px 28px rgba(34, 197, 94, 0.24);
+      transition: transform 0.16s ease, filter 0.16s ease, opacity 0.16s ease;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      filter: brightness(1.05);
+    }
+
+    button:active {
+      transform: translateY(0);
+    }
+
+    button:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+      transform: none;
+      box-shadow: none;
+    }
+
+    #status {
+      margin-top: 18px;
+      padding: 14px 16px;
+      border-radius: 12px;
+      background: #101923;
+      border: 1px solid var(--border);
+      color: #d1d5db;
+      min-height: 48px;
+      white-space: pre-wrap;
+      line-height: 1.5;
+    }
+
+    #status::before {
+      content: "●";
+      display: inline-block;
+      margin-right: 9px;
+      color: var(--green);
+    }
+
+    @media (max-width: 520px) {
+      body {
+        padding: 18px 12px;
+      }
+
+      .app {
+        padding: 22px;
+        border-radius: 18px;
+      }
+
+      h2 {
+        font-size: 22px;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  <main class="app">
+  <h2>Master Pop Up Generator (STABLE)</h2>
+
+  <input type="file" id="dbFile" accept=".xlsx,.xls" />
+  <input type="file" id="kmzFile" accept=".kmz" />
+
+  <h3>Input Area</h3>
+  <input id="area" placeholder="Nama Area" />
+  <input id="district" placeholder="District" />
+  <input id="subdistrict" placeholder="Sub District" />
+  <input id="postcode" placeholder="Post Code" />
+  <input id="fdt" placeholder="FDT Code" />
+  <input id="idarea" placeholder="ID Area" />
+
+  <button id="generateBtn">Generate Master Pop Up</button>
+
+  <div id="status">Siap.</div>
+
+  </main>
+
+  <script>
+    // ================= DOM =================
+    const el = {
+      dbFile: document.getElementById('dbFile'),
+      kmzFile: document.getElementById('kmzFile'),
+      area: document.getElementById('area'),
+      district: document.getElementById('district'),
+      subdistrict: document.getElementById('subdistrict'),
+      postcode: document.getElementById('postcode'),
+      fdt: document.getElementById('fdt'),
+      idarea: document.getElementById('idarea'),
+      generateBtn: document.getElementById('generateBtn'),
+      status: document.getElementById('status')
+    };
+
+    function setStatus(msg) {
+      el.status.textContent = msg;
+      console.log(msg);
+    }
+
+    // ================= UTIL =================
+    const normalize = v => String(v ?? '').trim().toUpperCase();
+
+    function safeNumber(v) {
+      const n = Number(v);
+      return Number.isFinite(n) ? n : NaN;
+    }
+
+    function getValue(obj, keys) {
+      for (const k of keys) {
+        if (obj && Object.prototype.hasOwnProperty.call(obj, k)) return obj[k];
+      }
+      return '';
+    }
+
+    function getLatLon(x, y) {
+      const X = safeNumber(x);
+      const Y = safeNumber(y);
+
+      if (!Number.isFinite(X) || !Number.isFinite(Y)) {
+        return { lat: '', lon: '' };
+      }
+
+      if (Math.abs(X) <= 90 && Math.abs(Y) > 90) return { lat: X, lon: Y };
+      if (Math.abs(Y) <= 90 && Math.abs(X) > 90) return { lat: Y, lon: X };
+
+      return { lat: X, lon: Y };
+    }
+
+    function coordKey(lat, lon, d = 6) {
+      const latN = Number(lat);
+      const lonN = Number(lon);
+      if (!Number.isFinite(latN) || !Number.isFinite(lonN)) return '';
+      return `${latN.toFixed(d)},${lonN.toFixed(d)}`;
+    }
+
+    function setCell(ws, r, c, v) {
+      const value = v ?? '';
+      if (typeof value === 'number' && Number.isFinite(value)) {
+        ws[XLSX.utils.encode_cell({ r, c })] = { t: 'n', v: value };
+      } else {
+        ws[XLSX.utils.encode_cell({ r, c })] = { t: 's', v: String(value) };
+      }
+    }
+
+    function escapeSheetRange(rowCount, colCount) {
+      const endRow = Math.max(1, rowCount);
+      const endCol = Math.max(1, colCount) - 1;
+      return XLSX.utils.encode_range({
+        s: { r: 0, c: 0 },
+        e: { r: endRow, c: endCol }
+      });
+    }
+
+    // ================= LINE FILTER =================
+    function filterOnlyLine(text) {
+      if (!text) return '';
+      const out = String(text)
+        .split(',')
+        .map(s => s.trim().toUpperCase())
+        .filter(s => /^LINE\s+[A-Z0-9]+$/.test(s));
+      return out.join(',');
+    }
+
+    // ================= HEADER =================
+    const HEADERS = [
+      'HOMEPASS_ID','CLUSTER_NAME','PREFIX_ADDRESS','STREET_NAME','HOUSE_NUMBER','BLOCK',
+      'FLOOR','RT','RW','DISTRICT','SUB_DISTRICT','FDT_CODE','FAT_CODE',
+      'BUILDING_LATITUDE','BUILDING_LONGITUDE','Category BizPass','POST CODE',
+      'ADDRESS POLE / FAT','OV_UG','HOUSE_COMMENT_','BUILDING_NAME','TOWER','APTN',
+      'FIBER_NODE__HFC_','ID_Area','Clamp_Hook_ID','DEPLOYMENT_TYPE','NEED_SURVEY',
+      'Pole ID (New)','Coordinate (Lat) NEW','Coordinate (Long) NEW',
+      'Pole Provider (New)','Pole Type','LINE','FAT ID/NETWORK ID',
+      'Clamp_Hook_LATITUDE','Clamp_Hook_LONGITUDE'
+    ];
+
+    function writeHeader(ws) {
+      HEADERS.forEach((h, i) => setCell(ws, 0, i, h));
+    }
+
+    // ================= GEO =================
+    const M_LAT = 111320;
+    const mLon = lat => 111320 * Math.cos((lat * Math.PI) / 180);
+
+    function distPointSeg(p, a, b) {
+      const px = p.lon * mLon(p.lat), py = p.lat * M_LAT;
+      const ax = a.lon * mLon(a.lat), ay = a.lat * M_LAT;
+      const bx = b.lon * mLon(b.lat), by = b.lat * M_LAT;
+
+      const vx = bx - ax, vy = by - ay;
+      const wx = px - ax, wy = py - ay;
+
+      const c1 = vx * wx + vy * wy;
+      if (c1 <= 0) return Math.hypot(px - ax, py - ay);
+
+      const c2 = vx * vx + vy * vy;
+      if (c2 <= c1) return Math.hypot(px - bx, py - by);
+
+      const t = c1 / c2;
+      return Math.hypot(px - (ax + t * vx), py - (ay + t * vy));
+    }
+
+    // ================= KMZ =================
+    async function parseKMZ(file) {
+      if (!file) return [];
+
+      const zip = await JSZip.loadAsync(await file.arrayBuffer());
+      const kmlEntry = Object.values(zip.files).find(f => /\.kml$/i.test(f.name));
+
+      if (!kmlEntry) {
+        throw new Error('File KMZ tidak mengandung file KML.');
+      }
+
+      const txt = await kmlEntry.async('text');
+      const xml = new DOMParser().parseFromString(txt, 'text/xml');
+
+      if (xml.querySelector('parsererror')) {
+        throw new Error('Gagal membaca isi KML dari KMZ.');
+      }
+
+      const segs = [];
+      const placemarks = [...xml.getElementsByTagName('Placemark')];
+
+      placemarks.forEach(p => {
+        const name = p.getElementsByTagName('name')[0]?.textContent?.trim();
+        const coordNode = p.getElementsByTagName('coordinates')[0];
+        const coordText = coordNode?.textContent?.trim();
+
+        if (!name || !coordText) return;
+
+        const pts = coordText
+          .split(/\s+/)
+          .map(s => {
+            const [lon, lat] = s.split(',').map(Number);
+            if (!Number.isFinite(lat) || !Number.isFinite(lon)) return null;
+            return { lat, lon };
+          })
+          .filter(Boolean);
+
+        for (let i = 0; i < pts.length - 1; i++) {
+          segs.push({
+            name,
+            a: pts[i],
+            b: pts[i + 1]
+          });
+        }
+      });
+
+      return segs;
+    }
+
+    // ================= XLSX =================
+    async function readWorkbookRows(file) {
+      const buffer = await file.arrayBuffer();
+      const wb = XLSX.read(buffer, { type: 'array' });
+
+      if (!wb.SheetNames || wb.SheetNames.length === 0) {
+        throw new Error('Workbook tidak memiliki sheet.');
+      }
+
+      const sheetName = wb.SheetNames[0];
+      const sheet = wb.Sheets[sheetName];
+
+      if (!sheet) {
+        throw new Error('Sheet pertama tidak ditemukan.');
+      }
+
+      const rows = XLSX.utils.sheet_to_json(sheet, {
+        defval: '',
+        raw: false
+      });
+
+      if (!Array.isArray(rows) || rows.length === 0) {
+        throw new Error('Data pada sheet pertama kosong.');
+      }
+
+      return rows;
+    }
+
+    // ================= MAIN =================
+    async function generate() {
+      const db = el.dbFile.files[0];
+      const kmz = el.kmzFile.files[0];
+
+      if (!db) {
+        alert('Upload DATABASE terlebih dahulu.');
+        return;
+      }
+
+      const A = {
+        area: el.area.value.trim(),
+        district: el.district.value.trim(),
+        subdistrict: el.subdistrict.value.trim(),
+        postcode: el.postcode.value.trim(),
+        fdt: el.fdt.value.trim(),
+        idarea: el.idarea.value.trim()
+      };
+
+      el.generateBtn.disabled = true;
+
+      try {
+        setStatus('Membaca file database...');
+        const rows = await readWorkbookRows(db);
+
+        setStatus(`Database terbaca: ${rows.length} baris.\nMemproses data...`);
+
+        const ws = {};
+        writeHeader(ws);
+
+        let rHome = 1;
+        let rPole = 1;
+
+        // HOOK MAP
+        const hookMap = {};
+        rows.forEach(r => {
+          const folderPath = normalize(getValue(r, ['FolderPath', 'FOLDERPATH', 'folderpath']));
+          if (folderPath.includes('/HOOK')) {
+            const name = normalize(getValue(r, ['Name', 'NAME', 'name']));
+            if (!name) return;
+
+            hookMap[name] = getLatLon(
+              getValue(r, ['X', 'x']),
+              getValue(r, ['Y', 'y'])
+            );
+          }
+        });
+
+        // NETWORK BY COORD (FAT/FDT)
+        // 1 koordinat bisa punya lebih dari 1 FAT/FDT.
+        // Jadi value disimpan sebagai array, bukan string tunggal.
+        const netByCoord = {};
+        rows.forEach(r => {
+          const folderPath = normalize(getValue(r, ['FolderPath', 'FOLDERPATH', 'folderpath']));
+          if (!folderPath.includes('/FAT') && !folderPath.includes('/FDT')) return;
+
+          const c = getLatLon(
+            getValue(r, ['X', 'x']),
+            getValue(r, ['Y', 'y'])
+          );
+
+          const k = coordKey(c.lat, c.lon);
+          if (!k) return;
+
+          const netName = String(getValue(r, ['Name', 'NAME', 'name']) || '-').trim();
+          if (!netByCoord[k]) netByCoord[k] = [];
+          if (netName && !netByCoord[k].includes(netName)) {
+            netByCoord[k].push(netName);
+          }
+        });
+
+        // KMZ
+        let segs = [];
+        if (kmz) {
+          setStatus('Membaca file KMZ...');
+          segs = await parseKMZ(kmz);
+          setStatus(`KMZ terbaca: ${segs.length} segmen line ditemukan.\nMelanjutkan proses...`);
+        }
+
+        const TOL = 1.5;
+
+        // ===== HOME =====
+        rows.forEach(r => {
+          const folderPathRaw = String(getValue(r, ['FolderPath', 'FOLDERPATH', 'folderpath']) || '');
+          const folderPath = folderPathRaw.toUpperCase();
+
+          if (!folderPath.includes('/HOME') && !folderPath.includes('/HOME-BIZ')) return;
+
+          const raw = String(getValue(r, ['Name', 'NAME', 'name']) || '').trim();
+          let block = '-';
+          let house = raw || '-';
+
+          const m = raw.match(/^([A-Za-z])(\d+)$/);
+          if (m) {
+            block = m[1];
+            house = m[2].padStart(2, '0');
+          }
+
+          const c = getLatLon(
+            getValue(r, ['X', 'x']),
+            getValue(r, ['Y', 'y'])
+          );
+
+          const claimHook = getValue(r, ['CLAIM_HOOK', 'Claim_Hook', 'claim_hook']);
+          const hookCoord = hookMap[normalize(claimHook)] || { lat: '', lon: '' };
+
+          setCell(ws, rHome, 0, '-');
+          setCell(ws, rHome, 1, A.area);
+          setCell(ws, rHome, 2, 'JL.');
+          setCell(ws, rHome, 3, getValue(r, ['JALAN', 'Jalan', 'jalan']) || '-');
+          setCell(ws, rHome, 4, house);
+          setCell(ws, rHome, 5, block);
+          setCell(ws, rHome, 6, '-');
+          setCell(ws, rHome, 7, '-');
+          setCell(ws, rHome, 8, '-');
+          setCell(ws, rHome, 9, A.district);
+          setCell(ws, rHome, 10, A.subdistrict);
+          setCell(ws, rHome, 11, A.fdt);
+          setCell(ws, rHome, 12, getValue(r, ['FAT', 'Fat', 'fat']) || '-');
+          setCell(ws, rHome, 13, c.lat);
+          setCell(ws, rHome, 14, c.lon);
+          setCell(ws, rHome, 15, '');
+          setCell(ws, rHome, 16, A.postcode);
+          setCell(ws, rHome, 17, '-');
+          setCell(ws, rHome, 18, 'O');
+          setCell(ws, rHome, 19, 'NEED SURVEY');
+          setCell(ws, rHome, 20, '-');
+          setCell(ws, rHome, 21, '-');
+          setCell(ws, rHome, 22, '-');
+          setCell(ws, rHome, 23, '-');
+          setCell(ws, rHome, 24, A.idarea);
+          setCell(ws, rHome, 25, claimHook || '-');
+          setCell(ws, rHome, 26, 'FAT EXT');
+          setCell(ws, rHome, 27, 'YES');
+          setCell(ws, rHome, 35, hookCoord.lat);
+          setCell(ws, rHome, 36, hookCoord.lon);
+
+          rHome++;
+        });
+
+        // ===== POLE =====
+        const poleMap = {};
+        rows.forEach(r => {
+          const folderPath = normalize(getValue(r, ['FolderPath', 'FOLDERPATH', 'folderpath']));
+          if (!folderPath.includes('/POLE')) return;
+
+          const name = String(getValue(r, ['Name', 'NAME', 'name']) || '').trim();
+          if (!name) return;
+
+          if (!poleMap[name]) {
+            poleMap[name] = {
+              name,
+              coord: getLatLon(
+                getValue(r, ['X', 'x']),
+                getValue(r, ['Y', 'y'])
+              )
+            };
+          }
+        });
+
+        Object.values(poleMap)
+          .sort((a, b) => a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' }))
+          .forEach(p => {
+            const found = new Set();
+
+            if (segs.length > 0 && Number.isFinite(Number(p.coord.lat)) && Number.isFinite(Number(p.coord.lon))) {
+              segs.forEach(s => {
+                const d = distPointSeg(p.coord, s.a, s.b);
+                if (d <= TOL) found.add(s.name);
+              });
+            }
+
+            const line = filterOnlyLine([...found].join(','));
+            const k = coordKey(p.coord.lat, p.coord.lon);
+            const net = k && netByCoord[k] ? netByCoord[k].join(',') : '-';
+
+            setCell(ws, rPole, 28, p.name);
+            setCell(ws, rPole, 29, p.coord.lat);
+            setCell(ws, rPole, 30, p.coord.lon);
+            setCell(ws, rPole, 31, 'LN (Existing)');
+            setCell(ws, rPole, 32, 'Pole 7/250');
+            setCell(ws, rPole, 33, line);
+            setCell(ws, rPole, 34, net);
+
+            rPole++;
+          });
+
+        const totalRows = Math.max(rHome, rPole, 1);
+        ws['!ref'] = escapeSheetRange(totalRows, HEADERS.length);
+
+        const out = XLSX.utils.book_new();
+        XLSX.utils.book_append_sheet(out, ws, 'MASTER_POP_UP');
+
+        setStatus(
+          `Selesai.\n` +
+          `Home rows: ${rHome - 1}\n` +
+          `Pole rows: ${rPole - 1}\n` +
+          `Menyimpan file...`
+        );
+
+        const kmzBaseName = kmz
+          ? kmz.name.replace(/\.kmz$/i, '')
+          : 'MASTER_POP_UP';
+        const outputFileName = `(BELUM MASUK TEMPLATE ${kmzBaseName}).xlsx`;
+
+        XLSX.writeFile(out, outputFileName);
+        setStatus(`Berhasil generate ${outputFileName}`);
+      } catch (err) {
+        console.error(err);
+        const msg = err?.message || String(err);
+        setStatus(`Gagal: ${msg}`);
+        alert(`Generate gagal.\n\n${msg}`);
+      } finally {
+        el.generateBtn.disabled = false;
+      }
+    }
+
+    el.generateBtn.addEventListener('click', generate);
+  </script>
+</body>
+</html>
