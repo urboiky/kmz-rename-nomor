@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Tools Design Ricky</title>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    html, body {
+      width: 100%;
+      min-height: 100vh;
+      overflow: hidden;
+    }
+
+    body {
+      color: #ffffff;
+      background:
+        radial-gradient(circle at 100% 30%, rgba(103, 58, 183, 0.55), transparent 18%),
+        radial-gradient(circle at 0% 85%, rgba(79, 70, 229, 0.35), transparent 14%),
+        linear-gradient(135deg, #020617 0%, #061b38 50%, #020617 100%);
+    }
+
+    .navbar {
+      height: 70px;
+      padding: 0 36px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      background: rgba(2, 6, 23, 0.72);
+      border-bottom: 1px solid rgba(255, 255, 255, 0.06);
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 14px;
+      font-size: 22px;
+      font-weight: 900;
+      letter-spacing: 0.3px;
+    }
+
+    .logo {
+      width: 42px;
+      height: 42px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, #38bdf8, #7c3aed);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      box-shadow: 0 0 20px rgba(124, 58, 237, 0.45);
+    }
+
+    .logo::before {
+      content: "";
+      width: 20px;
+      height: 11px;
+      border-left: 5px solid #fff;
+      border-bottom: 5px solid #fff;
+      transform: rotate(-45deg);
+      margin-top: -4px;
+    }
+
+    .tagline {
+      color: #e5e7eb;
+      font-size: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .page {
+      width: min(960px, calc(100% - 40px));
+      margin: 0 auto;
+      padding-top: 34px;
+      position: relative;
+    }
+
+    .dots {
+      position: fixed;
+      top: 96px;
+      left: 44px;
+      display: grid;
+      grid-template-columns: repeat(4, 7px);
+      gap: 14px;
+      opacity: 0.55;
+    }
+
+    .dots span {
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #7c3aed;
+    }
+
+    .hero {
+      text-align: center;
+      margin-bottom: 22px;
+    }
+
+    .hero h1 {
+      font-size: 44px;
+      line-height: 1;
+      font-weight: 900;
+      margin-bottom: 14px;
+      text-shadow: 0 5px 16px rgba(0, 0, 0, 0.45);
+    }
+
+    .hero p {
+      font-size: 18px;
+      color: #d1d9e6;
+      margin-bottom: 18px;
+    }
+
+    .accent-line {
+      width: 100px;
+      height: 5px;
+      border-radius: 999px;
+      background: linear-gradient(90deg, #0ea5e9, #8b5cf6);
+      margin: 0 auto;
+      position: relative;
+    }
+
+    .accent-line::after {
+      content: "";
+      position: absolute;
+      right: -16px;
+      top: -1px;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #8b5cf6;
+    }
+
+    .tools-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 260px);
+      justify-content: center;
+      gap: 18px 42px;
+    }
+
+    .tool-card {
+      width: 260px;
+      height: 275px;
+      padding: 18px 16px 14px;
+      border-radius: 14px;
+      text-decoration: none;
+      color: #ffffff;
+      background: rgba(13, 34, 67, 0.72);
+      border: 1px solid rgba(96, 165, 250, 0.32);
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04), 0 14px 34px rgba(0, 0, 0, 0.24);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: space-between;
+      text-align: center;
+      transition: 0.22s ease;
+    }
+
+    .tool-card:hover {
+      transform: translateY(-5px);
+      border-color: rgba(147, 197, 253, 0.8);
+      box-shadow: 0 22px 45px rgba(0, 0, 0, 0.4);
+    }
+
+    .icon {
+      width: 74px;
+      height: 74px;
+      border-radius: 14px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 34px;
+      margin: 0 auto 16px;
+      box-shadow: 0 14px 26px rgba(0, 0, 0, 0.22);
+      font-weight: 900;
+    }
+
+    .purple { background: linear-gradient(135deg, #8b5cf6, #4f46e5); }
+    .blue { background: linear-gradient(135deg, #38bdf8, #2563eb); }
+    .green { background: linear-gradient(135deg, #4ade80, #16a34a); }
+    .orange { background: linear-gradient(135deg, #fb923c, #f97316); }
+    .pink { background: linear-gradient(135deg, #f472b6, #ec4899); }
+    .cyan { background: linear-gradient(135deg, #2dd4bf, #0891b2); }
+
+    .tool-card h2 {
+      font-size: 20px;
+      line-height: 1.22;
+      margin-bottom: 12px;
+      font-weight: 900;
+    }
+
+    .tool-card p {
+      color: #e2e8f0;
+      font-size: 14px;
+      line-height: 1.45;
+      max-width: 225px;
+      margin: 0 auto;
+    }
+
+    .button {
+      width: 100%;
+      padding: 11px 14px;
+      border-radius: 7px;
+      font-size: 16px;
+      font-weight: 900;
+      color: white;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+    }
+
+    .footer {
+      text-align: center;
+      padding-top: 24px;
+      color: #cbd5e1;
+      font-size: 14px;
+    }
+
+    @media (max-height: 760px) {
+      .navbar { height: 62px; }
+      .page { padding-top: 22px; }
+      .hero { margin-bottom: 18px; }
+      .hero h1 { font-size: 38px; margin-bottom: 10px; }
+      .hero p { font-size: 16px; margin-bottom: 14px; }
+      .tools-grid { gap: 14px 38px; }
+      .tool-card { height: 245px; padding: 14px 14px 12px; }
+      .icon { width: 62px; height: 62px; font-size: 28px; margin-bottom: 12px; }
+      .tool-card h2 { font-size: 18px; margin-bottom: 8px; }
+      .tool-card p { font-size: 13px; line-height: 1.35; }
+      .button { padding: 9px 12px; font-size: 15px; }
+      .footer { padding-top: 14px; font-size: 13px; }
+    }
+
+    @media (max-width: 900px) {
+      html, body { overflow-y: auto; }
+      .tools-grid {
+        grid-template-columns: repeat(2, 260px);
+      }
+    }
+
+    @media (max-width: 620px) {
+      .navbar {
+        height: auto;
+        padding: 16px;
+        flex-direction: column;
+        gap: 10px;
+      }
+
+      .brand { font-size: 18px; }
+      .tagline { font-size: 13px; }
+      .page { width: calc(100% - 28px); padding-top: 22px; }
+      .hero h1 { font-size: 34px; }
+      .tools-grid { grid-template-columns: 1fr; }
+      .tool-card { width: 100%; max-width: 300px; margin: 0 auto; }
+      .dots { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <header class="navbar">
+    <div class="brand">
+      <div class="logo"></div>
+      <span>TOOLS DESIGN RICKY</span>
+    </div>
+
+    <div class="tagline">
+      <span>🚀</span>
+      <span>Kumpulan Tools Produktivitas</span>
+    </div>
+  </header>
+
+  <main class="page">
+    <div class="dots">
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+      <span></span><span></span><span></span><span></span>
+    </div>
+
+    <section class="hero">
+      <h1>Selamat Datang!</h1>
+      <p>Pilih tool yang ingin kamu gunakan dari daftar di bawah ini</p>
+      <div class="accent-line"></div>
+    </section>
+
+    <section class="tools-grid">
+      <a class="tool-card" href="https://urboiky.github.io/tools-kmz/MASTERPOP-STABLE.HTML" target="_blank" rel="noopener noreferrer">
+        <div>
+          <div class="icon purple">▣</div>
+          <h2>1. MASTER POPUP<br>GENERATOR</h2>
+          <p>Generate popup profesional untuk kebutuhan pemetaan dengan mudah.</p>
+        </div>
+        <div class="button purple">Buka Tool <span>➜</span></div>
+      </a>
+
+      <a class="tool-card" href="https://urboiky.github.io/tools-kmz/nn-renamer.html" target="_blank" rel="noopener noreferrer">
+        <div>
+          <div class="icon blue">✎</div>
+          <h2>2. NN RENAMER</h2>
+          <p>Ubah atau rapikan nama file secara massal dengan cepat.</p>
+        </div>
+        <div class="button blue">Buka Tool <span>➜</span></div>
+      </a>
+
+      <a class="tool-card" href="https://urboiky.github.io/tools-kmz/kmz-rename.html" target="_blank" rel="noopener noreferrer">
+        <div>
+          <div class="icon green">⌂</div>
+          <h2>3. NOMOR RUMAH<br>RENAMER</h2>
+          <p>Rename file berdasarkan nomor rumah secara otomatis.</p>
+        </div>
+        <div class="button green">Buka Tool <span>➜</span></div>
+      </a>
+
+      <a class="tool-card" href="https://urboiky.github.io/tools-kmz/hook-to-csv.html" target="_blank" rel="noopener noreferrer">
+        <div>
+          <div class="icon orange">↪</div>
+          <h2>4. HOOK TO CSV</h2>
+          <p>Ubah data dari format hook menjadi CSV dengan mudah.</p>
+        </div>
+        <div class="button orange">Buka Tool <span>➜</span></div>
+      </a>
+
+      <a class="tool-card" href="https://urboiky.github.io/tools-kmz/POPUP-CSV.html" target="_blank" rel="noopener noreferrer">
+        <div>
+          <div class="icon pink">CSV</div>
+          <h2>5. POPUP CSV</h2>
+          <p>Generate popup dari data CSV untuk keperluan pemetaan.</p>
+        </div>
+        <div class="button pink">Buka Tool <span>➜</span></div>
+      </a>
+
+      <a class="tool-card" href="https://urboiky.github.io/tools-kmz/popup-kmz-automatic.html" target="_blank" rel="noopener noreferrer">
+        <div>
+          <div class="icon cyan">KMZ</div>
+          <h2>6. POPUP KMZ<br>AUTOMATIC</h2>
+          <p>Generate file KMZ dengan popup secara otomatis.</p>
+        </div>
+        <div class="button cyan">Buka Tool <span>➜</span></div>
+      </a>
+    </section>
+
+    <footer class="footer">
+      © 2025 Tools Design Ricky. All rights reserved.
+    </footer>
+  </main>
+</body>
+</html>
