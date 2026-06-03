@@ -16,7 +16,6 @@
     html, body {
       width: 100%;
       min-height: 100vh;
-      overflow: hidden;
     }
 
     body {
@@ -142,9 +141,10 @@
 
     .tools-grid {
       display: grid;
-      grid-template-columns: repeat(3, 260px);
+      grid-template-columns: repeat(auto-fit, minmax(260px, 260px));
       justify-content: center;
       gap: 18px 42px;
+      padding-bottom: 40px;
     }
 
     .tool-card {
