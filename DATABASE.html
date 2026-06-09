@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KMZ to Excel - Nearest Road Offline v5</title>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/rbush@3.0.1/rbush.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <style>
+    :root{--bg:#0f172a;--card:#111827;--muted:#94a3b8;--text:#e5e7eb;--line:#263244;--accent:#38bdf8;--ok:#22c55e;--warn:#f59e0b;}
+    *{box-sizing:border-box} body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(135deg,#0f172a,#111827);color:var(--text)}
+    .wrap{max-width:1100px;margin:0 auto;padding:28px}.title{font-size:26px;font-weight:800;margin-bottom:6px}.sub{color:var(--muted);margin-bottom:22px;line-height:1.5}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}.card{background:rgba(17,24,39,.86);border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 30px rgba(0,0,0,.22)}
+    label{display:block;font-weight:700;margin-bottom:8px}.hint{font-size:13px;color:var(--muted);margin-top:8px;line-height:1.45}
+    input[type=file],input[type=number]{width:100%;background:#0b1220;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px}
+    .opts{display:grid;grid-template-columns:repeat(3,1fr);gap:12px;margin-top:14px}.check{display:flex;gap:8px;align-items:center;color:var(--muted);font-size:14px}
+    .actions{display:flex;gap:10px;flex-wrap:wrap;margin:18px 0}button{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer;background:var(--accent);color:#00111a}
+    button.secondary{background:#1f2937;color:var(--text);border:1px solid var(--line)}button:disabled{opacity:.45;cursor:not-allowed}
+    .status{white-space:pre-wrap;background:#0b1220;border:1px solid var(--line);border-radius:14px;padding:14px;color:#cbd5e1;min-height:84px;font-family:Consolas,monospace;font-size:13px}
+    .bar{height:10px;background:#0b1220;border:1px solid var(--line);border-radius:99px;overflow:hidden;margin:14px 0}.bar>div{height:100%;width:0;background:var(--ok);transition:.2s}
+    table{width:100%;border-collapse:collapse;font-size:12px;margin-top:10px}th,td{border-bottom:1px solid var(--line);padding:8px;text-align:left;white-space:nowrap}th{color:#bae6fd;background:#0b1220;position:sticky;top:0}.tablewrap{max-height:360px;overflow:auto;border:1px solid var(--line);border-radius:14px}
+    .full{grid-column:1/-1}.pill{display:inline-block;padding:4px 8px;border-radius:999px;background:#0b1220;border:1px solid var(--line);color:var(--muted);font-size:12px;margin-left:6px}
+    @media(max-width:800px){.grid,.opts{grid-template-columns:1fr}.wrap{padding:18px}}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">KMZ → Excel Jalan + Hook + FAT <span class="pill">Offline GeoJSON v5</span></div>
+  <div class="sub">Upload 1 file KMZ project + GeoJSON jalan. Semua placemark Point diexport, kolom <b>JALAN</b> diisi dari jalan terdekat di GeoJSON, <b>CLAIM_HOOK</b> dari boundary folder HOOK, dan <b>FAT</b> dari boundary folder CABLE DROP.</div>
+
+  <div class="grid">
+    <div class="card">
+      <label>1. KMZ Project</label>
+      <input id="kmzFile" type="file" accept=".kmz,.kml" />
+      <div class="hint">Diambil semua placemark Point dari semua folder. Boundary polygon HOOK dan CABLE DROP juga dibaca otomatis dari KMZ.</div>
+    </div>
+    <div class="card">
+      <label>2. GeoJSON Jalan</label>
+      <input id="geojsonFile" type="file" accept=".geojson,.json" />
+      <div class="hint">GeoJSON berisi LineString/MultiLineString jalan OSM. Jika ada titik yang jauh dari ruas jalan, naikkan radius 500–1000 meter.</div>
+    </div>
+
+    <div class="card full">
+      <label>Pengaturan</label>
+      <div class="opts">
+        <div><label>Radius maksimal jalan (meter)</label><input id="radius" type="number" value="500" min="10" max="3000"></div>
+        <div><label>Nama file Excel</label><input id="outName" type="text" value="hasil_kmz_jalan.xlsx" style="width:100%;background:#0b1220;color:var(--text);border:1px solid var(--line);border-radius:12px;padding:12px"></div>
+        <div style="padding-top:32px" class="check"><input id="preferNamed" type="checkbox" checked> Utamakan jalan yang punya nama</div>
+      </div>
+      <div class="actions">
+        <button id="processBtn">PROCESS</button>
+        <button id="exportBtn" class="secondary" disabled>EXPORT EXCEL</button>
+        <button id="clearBtn" class="secondary">RESET</button>
+      </div>
+      <div class="bar"><div id="bar"></div></div>
+      <div id="status" class="status">Siap.</div>
+    </div>
+
+    <div class="card full">
+      <label>Preview hasil <span id="count" class="pill">0 row</span></label>
+      <div class="tablewrap"><table id="preview"><thead></thead><tbody></tbody></table></div>
+    </div>
+  </div>
+</div>
+<script>
+const HEADERS = ['OID','SHAPE','Name','FolderPath','Y','X','JALAN','CLAIM_HOOK','FAT'];
+let results = [];
+const $ = id => document.getElementById(id);
+function log(msg){ $('status').textContent = msg; }
+function setBar(p){ $('bar').style.width = Math.max(0, Math.min(100, p)) + '%'; }
+function sleep(ms){ return new Promise(r=>setTimeout(r,ms)); }
+function cleanName(s){ return (s||'').replace(/\s+/g,' ').trim(); }
+function localName(el){ return el.localName || el.nodeName.split(':').pop(); }
+
+async function readTextFromKmzOrKml(file){
+  if(file.name.toLowerCase().endsWith('.kml')) return await file.text();
+  const zip = await JSZip.loadAsync(file);
+  const kmlName = Object.keys(zip.files).find(n=>n.toLowerCase().endsWith('.kml'));
+  if(!kmlName) throw new Error('Di KMZ tidak ada file .kml');
+  return await zip.files[kmlName].async('text');
+}
+function directChildText(el, tag){
+  for(const c of el.children){ if(localName(c)===tag) return cleanName(c.textContent); }
+  return '';
+}
+function parseCoordText(txt){
+  return cleanName(txt).split(/\s+/).map(pair=>{
+    const p = pair.split(',').map(Number);
+    return (p.length >= 2 && isFinite(p[0]) && isFinite(p[1])) ? [p[0], p[1]] : null;
+  }).filter(Boolean);
+}
+function getPointCoord(pm){
+  const points = [...pm.getElementsByTagName('*')].filter(e=>localName(e)==='Point');
+  if(!points.length) return null;
+  const coords = [...points[0].getElementsByTagName('*')].find(e=>localName(e)==='coordinates');
+  if(!coords) return null;
+  const arr = parseCoordText(coords.textContent);
+  if(!arr.length) return null;
+  return {lon:arr[0][0], lat:arr[0][1]};
+}
+function getPolygonRings(pm){
+  const polys = [...pm.getElementsByTagName('*')].filter(e=>localName(e)==='Polygon');
+  const rings = [];
+  for(const poly of polys){
+    let coordEl = null;
+    const outers = [...poly.getElementsByTagName('*')].filter(e=>localName(e)==='outerBoundaryIs');
+    if(outers.length) coordEl = [...outers[0].getElementsByTagName('*')].find(e=>localName(e)==='coordinates');
+    if(!coordEl) coordEl = [...poly.getElementsByTagName('*')].find(e=>localName(e)==='coordinates');
+    if(coordEl){
+      const ring = parseCoordText(coordEl.textContent);
+      if(ring.length >= 3) rings.push(ring);
+    }
+  }
+  return rings;
+}
+function pointInRing(lon, lat, ring){
+  let inside = false;
+  for(let i=0,j=ring.length-1;i<ring.length;j=i++){
+    const xi=ring[i][0], yi=ring[i][1], xj=ring[j][0], yj=ring[j][1];
+    const intersect = ((yi>lat)!=(yj>lat)) && (lon < (xj-xi)*(lat-yi)/((yj-yi)||1e-12)+xi);
+    if(intersect) inside = !inside;
+  }
+  return inside;
+}
+function sameKmzName(a,b){
+  const norm = x => cleanName(String(x||'')).toLowerCase().replace(/\.kmz$/,'').replace(/\.kml$/,'');
+  return norm(a) && norm(a) === norm(b);
+}
+function parseKmlData(kmlText, fileName){
+  const doc = new DOMParser().parseFromString(kmlText, 'text/xml');
+  const parserErr = doc.getElementsByTagName('parsererror')[0];
+  if(parserErr) throw new Error('KML tidak bisa dibaca');
+  const points = [];
+  const hookPolygons = [];
+  const fatPolygons = [];
+  function pathHas(path, key){ return path.some(x => cleanName(x).toUpperCase() === key); }
+  function walk(node, path){
+    for(const child of node.children){
+      const ln = localName(child);
+      if(ln === 'Document' || ln === 'Folder'){
+        const nm = directChildText(child,'name');
+        // Hindari path dobel seperti: FILE.kmz/FILE.kmz/... atau FILE.kmz/FILE/...
+        const alreadyRoot = path.length === 1 && sameKmzName(path[0], nm);
+        walk(child, nm && !alreadyRoot ? [...path, nm] : path);
+      } else if(ln === 'Placemark'){
+        const name = directChildText(child,'name');
+        const coord = getPointCoord(child);
+        if(coord){ points.push({ name, folderPath: path.join('/'), lat: coord.lat, lon: coord.lon }); }
+        const rings = getPolygonRings(child);
+        if(rings.length){
+          const item = {name, folderPath:path.join('/'), rings};
+          if(pathHas(path, 'HOOK')) hookPolygons.push(item);
+          if(pathHas(path, 'CABLE DROP')) fatPolygons.push(item);
+        }
+      } else {
+        walk(child, path);
+      }
+    }
+  }
+  walk(doc.documentElement, [fileName]);
+  return {points, hookPolygons, fatPolygons};
+}
+function matchPolygonName(lat, lon, polygons){
+  for(const poly of polygons){
+    for(const ring of poly.rings){
+      if(pointInRing(lon, lat, ring)) return poly.name || '';
+    }
+  }
+  return '';
+}
+function romanToInt(str){
+  const s = String(str||'').toUpperCase();
+  if(!/^(?=[MDCLXVI])M{0,4}(CM|CD|D?C{0,3})(XC|XL|L?X{0,3})(IX|IV|V?I{0,3})$/.test(s)) return null;
+  const map = {I:1,V:5,X:10,L:50,C:100,D:500,M:1000};
+  let total = 0;
+  for(let i=0;i<s.length;i++){
+    const cur = map[s[i]], next = map[s[i+1]] || 0;
+    total += cur < next ? -cur : cur;
+  }
+  return total || null;
+}
+function normalizeRoadName(name){
+  let s = cleanName(name);
+  if(!s) return '';
+  s = s.replace(/^(jalan|jln\.?|jl\.?)\s+/i, '');
+  s = s.replace(/^gg\.?\s+/i, 'GANG ');
+  s = s.replace(/\b[IVXLCDM]+\b/gi, m => {
+    const n = romanToInt(m);
+    return n ? String(n) : m;
+  });
+  return s.toUpperCase().replace(/\s+/g,' ').trim();
+}
+function roadDisplayName(props){
+  if(!props) return '';
+  const fields = ['name','name:id','official_name','alt_name','ref'];
+  for(const f of fields){ if(props[f]) return normalizeRoadName(String(props[f])); }
+  return '';
+}
+function fallbackRoadName(props){
+  const n = roadDisplayName(props); if(n) return n;
+  if(props && props.highway) return normalizeRoadName(String(props.highway));
+  return '';
+}
+function metersPerDegLon(lat){ return 111320 * Math.cos(lat * Math.PI/180); }
+function distPointSegMeters(lat, lon, lat1, lon1, lat2, lon2){
+  const mx = metersPerDegLon(lat), my = 110540;
+  const x = lon * mx, y = lat * my, x1 = lon1 * mx, y1 = lat1 * my, x2 = lon2 * mx, y2 = lat2 * my;
+  const dx = x2-x1, dy = y2-y1;
+  let t = (dx===0 && dy===0) ? 0 : ((x-x1)*dx + (y-y1)*dy)/(dx*dx+dy*dy);
+  t = Math.max(0, Math.min(1, t));
+  const px = x1 + t*dx, py = y1 + t*dy;
+  return Math.hypot(x-px, y-py);
+}
+async function buildRoadIndex(geojson){
+  if(!geojson || geojson.type !== 'FeatureCollection') throw new Error('GeoJSON harus FeatureCollection');
+  const treeNamed = new RBush();
+  const treeAll = new RBush();
+  const namedItems = [], allItems = [];
+  let segCount=0, namedSegCount=0, roadCount=0, namedRoadCount=0;
+  const feats = geojson.features || [];
+  for(let i=0;i<feats.length;i++){
+    const f = feats[i], g = f.geometry; if(!g) continue;
+    const named = roadDisplayName(f.properties);
+    const fallback = fallbackRoadName(f.properties);
+    const lines = g.type === 'LineString' ? [g.coordinates] : (g.type === 'MultiLineString' ? g.coordinates : []);
+    if(!lines.length) continue;
+    roadCount++; if(named) namedRoadCount++;
+    for(const line of lines){
+      for(let j=0;j<line.length-1;j++){
+        const a=line[j], b=line[j+1]; if(!a||!b) continue;
+        const lon1=+a[0], lat1=+a[1], lon2=+b[0], lat2=+b[1];
+        if(!isFinite(lat1)||!isFinite(lon1)||!isFinite(lat2)||!isFinite(lon2)) continue;
+        const base = {minX:Math.min(lon1,lon2), minY:Math.min(lat1,lat2), maxX:Math.max(lon1,lon2), maxY:Math.max(lat1,lat2), lat1,lon1,lat2,lon2, props:f.properties};
+        allItems.push({...base, name:fallback, named:false}); segCount++;
+        if(named){ namedItems.push({...base, name:named, named:true}); namedSegCount++; }
+      }
+    }
+    if(i % 2000 === 0){ setBar(10 + i/feats.length*25); log(`Membuat index jalan... ${i}/${feats.length}`); await sleep(0); }
+  }
+  treeNamed.load(namedItems);
+  treeAll.load(allItems);
+  return {treeNamed, treeAll, segCount, namedSegCount, roadCount, namedRoadCount};
+}
+function findNearestInTree(lat, lon, tree, radiusM){
+  const degLat = radiusM / 110540;
+  const degLon = radiusM / Math.max(1, metersPerDegLon(lat));
+  const candidates = tree.search({minX:lon-degLon, minY:lat-degLat, maxX:lon+degLon, maxY:lat+degLat});
+  let best=null;
+  for(const c of candidates){
+    const d = distPointSegMeters(lat,lon,c.lat1,c.lon1,c.lat2,c.lon2);
+    if(d <= radiusM && (!best || d < best.distance)) best = {name:c.name, distance:d, named:c.named};
+  }
+  return best;
+}
+function findNearestRoad(lat, lon, index, radiusM, preferNamed){
+  // Cari jalan bernama dulu. Kalau tidak ketemu, cari semua ruas untuk cek apakah jalan di GeoJSON memang tanpa nama.
+  let best = findNearestInTree(lat, lon, preferNamed ? index.treeNamed : index.treeAll, radiusM);
+  if(best && best.name) return best;
+  const anyRoad = findNearestInTree(lat, lon, index.treeAll, radiusM);
+  if(anyRoad && !anyRoad.named) return {name:'TIDAK ADA NAMA DI GEOJSON', distance:anyRoad.distance, named:false};
+  return best;
+}
+async function processFiles(){
+  const kmz = $('kmzFile').files[0], gjFile = $('geojsonFile').files[0];
+  if(!kmz || !gjFile){ alert('Upload KMZ Project dan GeoJSON Jalan dulu.'); return; }
+  $('processBtn').disabled = true; $('exportBtn').disabled = true; results=[]; renderPreview([]); setBar(0);
+  try{
+    log('Membaca KMZ...');
+    const kmlText = await readTextFromKmzOrKml(kmz);
+    const kmlData = parseKmlData(kmlText, kmz.name);
+    const placemarks = kmlData.points;
+    log(`Placemark Point: ${placemarks.length}\nBoundary HOOK: ${kmlData.hookPolygons.length}\nBoundary CABLE DROP: ${kmlData.fatPolygons.length}\nMembaca GeoJSON...`); setBar(8); await sleep(0);
+    const geojson = JSON.parse(await gjFile.text());
+    const preferNamed = $('preferNamed').checked;
+    const index = await buildRoadIndex(geojson);
+    if(index.namedSegCount === 0 && preferNamed){
+      throw new Error('Tidak ada jalan bernama di GeoJSON. Cek file GeoJSON atau matikan centang "Utamakan jalan yang punya nama".');
+    }
+    const radius = Number($('radius').value) || 150;
+    results = [];
+    for(let i=0;i<placemarks.length;i++){
+      const p = placemarks[i];
+      const nearest = findNearestRoad(p.lat, p.lon, index, radius, preferNamed);
+      results.push({
+        OID: i+1,
+        SHAPE: 'Point Z',
+        Name: p.name,
+        FolderPath: p.folderPath,
+        Y: p.lat,
+        X: p.lon,
+        JALAN: nearest ? nearest.name : '-',
+        CLAIM_HOOK: matchPolygonName(p.lat, p.lon, kmlData.hookPolygons) || '-',
+        FAT: matchPolygonName(p.lat, p.lon, kmlData.fatPolygons) || '-'
+      });
+      if(i % 50 === 0){
+        setBar(35 + i/Math.max(1,placemarks.length)*65);
+        log(`Matching jalan terdekat... ${i}/${placemarks.length}\nRoad indexed: ${index.roadCount} | Named: ${index.namedRoadCount} | Segment: ${index.segCount}`);
+        await sleep(0);
+      }
+    }
+    setBar(100);
+    const found = results.filter(r=>r.JALAN && r.JALAN !== '-' && r.JALAN !== 'Tidak ditemukan').length;
+    log(`Selesai.\nPlacemark: ${results.length}\nJalan ditemukan: ${found}\nTidak ditemukan: ${results.length-found}\nBoundary HOOK: ${kmlData.hookPolygons.length}\nBoundary CABLE DROP: ${kmlData.fatPolygons.length}\nRadius: ${radius} meter`);
+    renderPreview(results.slice(0,200));
+    $('exportBtn').disabled = results.length === 0;
+  }catch(e){ log('ERROR: ' + e.message); console.error(e); }
+  finally{ $('processBtn').disabled = false; }
+}
+function renderPreview(rows){
+  $('count').textContent = results.length ? `${results.length} row` : `${rows.length} row`;
+  const thead = $('preview').querySelector('thead'), tbody = $('preview').querySelector('tbody');
+  thead.innerHTML = '<tr>'+HEADERS.map(h=>`<th>${h}</th>`).join('')+'</tr>';
+  tbody.innerHTML = rows.map(r=>'<tr>'+HEADERS.map(h=>`<td>${r[h] ?? ''}</td>`).join('')+'</tr>').join('');
+}
+function exportExcel(){
+  if(!results.length){ alert('Belum ada hasil. Klik PROCESS dulu.'); return; }
+  const data = results.map(r => HEADERS.map(h => r[h]));
+  const ws = XLSX.utils.aoa_to_sheet([HEADERS, ...data]);
+  ws['!cols'] = [{wch:8},{wch:10},{wch:24},{wch:80},{wch:14},{wch:14},{wch:28},{wch:16},{wch:16}];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'Sheet1');
+  let name = $('outName').value.trim() || 'hasil_kmz_jalan.xlsx';
+  if(!name.toLowerCase().endsWith('.xlsx')) name += '.xlsx';
+  XLSX.writeFile(wb, name);
+}
+$('processBtn').addEventListener('click', processFiles);
+$('exportBtn').addEventListener('click', exportExcel);
+$('clearBtn').addEventListener('click', ()=>{ results=[]; renderPreview([]); setBar(0); log('Siap.'); $('exportBtn').disabled=true; });
+renderPreview([]);
+</script>
+</body>
+</html>
