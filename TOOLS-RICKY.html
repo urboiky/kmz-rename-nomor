@@ -140,16 +140,17 @@
     }
 
     .tools-grid {
-    display: flex;
-    flex-wrap: wrap;
+    display: grid;
+    grid-template-columns: repeat(3, 260px);
     justify-content: center;
     gap: 18px;
-    max-width: 1100px;
+    max-width: 900px;
     margin: 0 auto;
     }
 
     .tool-card {
-      flex: 0 0 260px;
+      width: 260px;
+      height: 275px;
       padding: 18px 16px 14px;
       border-radius: 14px;
       text-decoration: none;
@@ -347,7 +348,6 @@
         </div>
         <div class="button cyan">Buka Tool <span>➜</span></div>
       </a>
-    </section>
 
     <a class="tool-card" href="https://script.google.com/macros/s/AKfycbxajEqp02dzaJx682PyzPj-QLEpTnC0EGRSF7zGmZZv4nVejqv2YGsWCdvWH5YliPs/exec" target="_blank" rel="noopener noreferrer">
   <div>
@@ -366,6 +366,7 @@
   </div>
   <div class="button purple">Buka Tool <span>➜</span></div>
 </a>
+         </section>
     
     <footer class="footer">
       © 2025 Tools Design Ricky. All rights reserved.
