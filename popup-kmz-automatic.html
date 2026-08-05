@@ -383,7 +383,7 @@ function updateBadges() {
 
 async function parseCsv(file) {
   const text = await file.text();
-  const parsed = Papa.parse(text, { header:true, delimiter:";", skipEmptyLines:true, transformHeader:h => String(h||"").trim() });
+  const parsed = Papa.parse(text, { header:true, delimiter:"", skipEmptyLines:true, transformHeader:h => String(h||"").trim() });
   if (parsed.errors?.length) throw new Error(file.name + ": " + parsed.errors[0].message);
   return {
     headers: parsed.meta.fields || [],
