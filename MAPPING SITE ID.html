@@ -1,0 +1,126 @@
+<!doctype html>
+<html lang="id">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>KMZ × Excel Site ID Matcher</title>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@turf/turf@6.5.0/turf.min.js"></script>
+  <style>
+    :root{--bg:#0b1020;--card:#151c31;--muted:#93a0ba;--text:#f4f7ff;--accent:#5ea2ff;--ok:#48d597;--warn:#ffcc66;--danger:#ff6b7a;--line:#2a3554}
+    *{box-sizing:border-box} body{margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:linear-gradient(135deg,#080c18,#111936);color:var(--text);min-height:100vh}
+    .wrap{max-width:1100px;margin:auto;padding:32px 18px 60px}.head{margin-bottom:20px}.head h1{font-size:clamp(25px,4vw,42px);margin:0 0 8px}.head p{margin:0;color:var(--muted)}
+    .card{background:rgba(21,28,49,.95);border:1px solid var(--line);border-radius:18px;padding:20px;box-shadow:0 18px 55px rgba(0,0,0,.25);margin-bottom:16px}
+    .grid{display:grid;grid-template-columns:1fr 1fr;gap:14px}@media(max-width:760px){.grid{grid-template-columns:1fr}}
+    .drop{border:1px dashed #526184;border-radius:14px;padding:18px;background:#10172a}.drop label{display:block;font-weight:700;margin-bottom:8px}.drop input{width:100%}.hint{font-size:12px;color:var(--muted);margin-top:8px}
+    .rules{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-top:14px}@media(max-width:820px){.rules{grid-template-columns:1fr 1fr}}@media(max-width:480px){.rules{grid-template-columns:1fr}}
+    .rule{padding:10px 12px;border-radius:12px;background:#10172a;border:1px solid var(--line);font-size:13px;color:#cbd4e9}
+    button{border:0;border-radius:12px;padding:12px 16px;font-weight:800;cursor:pointer}.primary{background:var(--accent);color:#07101f}.primary:disabled{opacity:.45;cursor:not-allowed}.secondary{background:#263352;color:white}.actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:16px}
+    .status{margin-top:14px;padding:12px;border-radius:12px;background:#0e1527;color:#cbd4e9;white-space:pre-wrap}.status.ok{border-left:4px solid var(--ok)}.status.err{border-left:4px solid var(--danger)}
+    .stats{display:grid;grid-template-columns:repeat(5,1fr);gap:10px}@media(max-width:800px){.stats{grid-template-columns:1fr 1fr}}.stat{background:#10172a;border:1px solid var(--line);border-radius:12px;padding:12px}.stat b{display:block;font-size:22px}.stat span{font-size:12px;color:var(--muted)}
+    .tablebox{overflow:auto;max-height:430px;border:1px solid var(--line);border-radius:12px}table{width:100%;border-collapse:collapse;font-size:13px}th,td{padding:9px 10px;border-bottom:1px solid #26304b;white-space:nowrap;text-align:left}th{position:sticky;top:0;background:#202b48;z-index:1}.match{color:var(--ok)}.nomatch{color:var(--warn)}
+    details{margin-top:12px;color:#cbd4e9}code{color:#9cc7ff}
+  </style>
+</head>
+<body>
+<div class="wrap">
+  <div class="head"><h1>KMZ × Excel Site ID Matcher</h1><p>Upload dua file, proses di browser, lalu download Excel hasil mapping.</p></div>
+  <div class="card">
+    <div class="grid">
+      <div class="drop"><label>1. File KMZ</label><input id="kmzFile" type="file" accept=".kmz,.kml"/><div class="hint">Harus ada folder HOME dan folder JALAN yang berisi polygon/boundary.</div></div>
+      <div class="drop"><label>2. Database Excel</label><input id="xlsxFile" type="file" accept=".xlsx,.xls"/><div class="hint">Kolom: SITE ID, NAMA JALAN, NOMOR RUMAH.</div></div>
+    </div>
+    <div class="rules">
+      <div class="rule">✓ Urutan mengikuti <b>HOME di KMZ</b></div><div class="rule">✓ Prefix <b>?-</b> tetap masuk, SITE ID <b>-</b></div><div class="rule">✓ SITE ID hanya dipakai <b>1×</b></div><div class="rule">✓ Tidak match diisi <b>-</b></div>
+    </div>
+    <div class="actions"><button class="primary" id="processBtn">Proses Mapping</button><button class="secondary" id="downloadBtn" disabled>Download Hasil Excel</button></div>
+    <div id="status" class="status">Pilih file KMZ dan Excel.</div>
+  </div>
+  <div id="resultCard" class="card" hidden>
+    <div class="stats" id="stats"></div>
+    <h3>Preview hasil</h3><div class="tablebox"><table><thead><tr><th>#</th><th>SITE ID</th><th>NAMA JALAN</th><th>NOMOR RUMAH</th><th>LAT</th><th>LONG</th><th>STATUS</th></tr></thead><tbody id="preview"></tbody></table></div>
+    <details><summary>Catatan pencocokan</summary><p>Hasil selalu mengikuti urutan placemark HOME dari atas ke bawah di KMZ. Placemark dengan prefix <b>?-</b> tetap dimasukkan, tetapi SITE ID otomatis <b>-</b> tanpa pencocokan database. Placemark lain dicocokkan memakai NAMA JALAN + NOMOR RUMAH. Untuk nomor rumah duplikat, sistem mengambil baris database berikutnya yang belum terpakai sehingga satu baris database tidak digunakan dua kali.</p></details>
+  </div>
+</div>
+<script>
+const $=id=>document.getElementById(id); let outputRows=[];
+function norm(v){return String(v??'').trim().toUpperCase().replace(/\s+/g,' ').replace(/[.,]/g,'')}
+function normHouse(v){return norm(v).replace(/^NO\.?\s*/,'').replace(/\s/g,'')}
+function localName(el){return el.localName||el.nodeName.split(':').pop()}
+function children(el,name){return [...el.children].filter(x=>localName(x)===name)}
+function descendants(el,name){return [...el.getElementsByTagName('*')].filter(x=>localName(x)===name)}
+function textChild(el,name){const c=children(el,name)[0]; return c?c.textContent.trim():''}
+function parseCoordText(t){return t.trim().split(/\s+/).map(s=>s.split(',').slice(0,2).map(Number)).filter(p=>Number.isFinite(p[0])&&Number.isFinite(p[1]))}
+function folderPath(el){const names=[];let p=el.parentElement;while(p){if(localName(p)==='Folder')names.unshift(textChild(p,'name'));p=p.parentElement}return names}
+async function getKmlText(file){
+  if(file.name.toLowerCase().endsWith('.kml')) return await file.text();
+  const zip=await JSZip.loadAsync(await file.arrayBuffer()); const kmlName=Object.keys(zip.files).find(n=>n.toLowerCase().endsWith('.kml'));
+  if(!kmlName) throw new Error('File KMZ tidak memiliki KML.'); return await zip.files[kmlName].async('text');
+}
+function parseKml(kml){
+  const xml=new DOMParser().parseFromString(kml,'application/xml'); if(xml.querySelector('parsererror')) throw new Error('KML tidak valid.');
+  const placemarks=descendants(xml.documentElement,'Placemark'); const homes=[], roads=[];
+  for(const pm of placemarks){
+    const name=textChild(pm,'name'); const path=folderPath(pm); const point=descendants(pm,'Point')[0]; const polygonEls=descendants(pm,'Polygon');
+    if(path.some(x=>norm(x)==='HOME') && point){
+      const c=parseCoordText(textChild(point,'coordinates'))[0];
+      if(c) homes.push({house:name,lon:c[0],lat:c[1],forcedNoSite:/^\s*\?-/.test(name)});
+    }
+    if(path.some(x=>norm(x)==='JALAN') && polygonEls.length){
+      for(const polyEl of polygonEls){
+        const outer=descendants(polyEl,'outerBoundaryIs')[0]; if(!outer) continue; const ring=parseCoordText(descendants(outer,'coordinates')[0]?.textContent||'');
+        if(ring.length<3) continue; if(ring[0][0]!==ring.at(-1)[0]||ring[0][1]!==ring.at(-1)[1]) ring.push([...ring[0]]);
+        const holes=[]; for(const inner of descendants(polyEl,'innerBoundaryIs')){let r=parseCoordText(descendants(inner,'coordinates')[0]?.textContent||'');if(r.length>=3){if(r[0][0]!==r.at(-1)[0]||r[0][1]!==r.at(-1)[1])r.push([...r[0]]);holes.push(r)}}
+        roads.push({name, feature:turf.polygon([ring,...holes])});
+      }
+    }
+  }
+  return {homes,roads};
+}
+async function parseExcel(file){
+  const wb=XLSX.read(await file.arrayBuffer(),{type:'array',cellText:true,cellDates:false}); const ws=wb.Sheets[wb.SheetNames[0]];
+  const rows=XLSX.utils.sheet_to_json(ws,{defval:'',raw:false}); if(!rows.length) throw new Error('Excel kosong.');
+  const keys=Object.keys(rows[0]); const pick=(wanted)=>keys.find(k=>norm(k)===wanted)||keys.find(k=>norm(k).includes(wanted));
+  const siteKey=pick('SITE ID'), roadKey=pick('NAMA JALAN'), houseKey=pick('NOMOR RUMAH');
+  if(!siteKey||!roadKey||!houseKey) throw new Error('Kolom wajib tidak ditemukan: SITE ID, NAMA JALAN, NOMOR RUMAH.');
+  return rows.map((r,i)=>({idx:i,site:String(r[siteKey]??'').trim(),road:String(r[roadKey]??'').trim(),house:String(r[houseKey]??'').trim(),used:false}));
+}
+function roadForPoint(h,roads){const pt=turf.point([h.lon,h.lat]);for(const r of roads){try{if(turf.booleanPointInPolygon(pt,r.feature))return r.name}catch(e){}}return '-'}
+function doMatch(homes,roads,db){
+  const byKey=new Map();
+  for(const r of db){
+    const key=norm(r.road)+'|'+normHouse(r.house);
+    if(!byKey.has(key)) byKey.set(key,[]);
+    byKey.get(key).push(r);
+  }
+  return homes.map(h=>{
+    const road=roadForPoint(h,roads);
+    if(h.forcedNoSite){
+      return {'SITE ID':'-','NAMA JALAN':road||'-','NOMOR RUMAH':h.house||'-','LAT':h.lat,'LONG':h.lon,'STATUS':'PREFIX ?-'};
+    }
+    const key=norm(road)+'|'+normHouse(h.house);
+    const candidates=byKey.get(key)||[];
+    const row=candidates.find(x=>!x.used);
+    if(row) row.used=true;
+    return {'SITE ID':row&&row.site&&row.site!=='-'?row.site:'-','NAMA JALAN':road||'-','NOMOR RUMAH':h.house||'-','LAT':h.lat,'LONG':h.lon,'STATUS':row?'MATCH':'TIDAK MATCH'};
+  });
+}
+function render(rows,homes,roads,db){
+  const matched=rows.filter(r=>r.STATUS==='MATCH').length, forced=rows.filter(r=>r.STATUS==='PREFIX ?-').length, no=rows.length-matched-forced;
+  $('stats').innerHTML=`<div class="stat"><b>${homes}</b><span>HOME valid</span></div><div class="stat"><b>${roads}</b><span>Polygon jalan</span></div><div class="stat"><b>${db}</b><span>Baris database</span></div><div class="stat"><b>${matched}</b><span>Match</span></div><div class="stat"><b>${no}</b><span>Tidak match</span></div>`;
+  $('preview').innerHTML=rows.slice(0,500).map((r,i)=>`<tr><td>${i+1}</td><td>${esc(r['SITE ID'])}</td><td>${esc(r['NAMA JALAN'])}</td><td>${esc(r['NOMOR RUMAH'])}</td><td>${r.LAT}</td><td>${r.LONG}</td><td class="${r.STATUS==='MATCH'?'match':'nomatch'}">${r.STATUS}</td></tr>`).join(''); $('resultCard').hidden=false;
+}
+function esc(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]))}
+$('processBtn').onclick=async()=>{try{
+  const kf=$('kmzFile').files[0],xf=$('xlsxFile').files[0];if(!kf||!xf)throw new Error('Pilih file KMZ dan Excel dulu.');
+  $('processBtn').disabled=true;$('downloadBtn').disabled=true;$('status').className='status';$('status').textContent='Membaca file...';
+  const [kml,db]=await Promise.all([getKmlText(kf),parseExcel(xf)]);$('status').textContent='Membaca folder HOME dan polygon jalan...';
+  const geo=parseKml(kml);if(!geo.homes.length)throw new Error('Placemark valid di folder HOME tidak ditemukan.');if(!geo.roads.length)throw new Error('Polygon/boundary di folder JALAN tidak ditemukan.');
+  $('status').textContent='Mencocokkan data...';outputRows=doMatch(geo.homes,geo.roads,db);render(outputRows,geo.homes.length,geo.roads.length,db.length);
+  const m=outputRows.filter(r=>r.STATUS==='MATCH').length, pfx=outputRows.filter(r=>r.STATUS==='PREFIX ?-').length, nm=outputRows.length-m-pfx;$('status').className='status ok';$('status').textContent=`Selesai. ${m} match, ${pfx} prefix ?- (SITE ID -), ${nm} tidak match.`;$('downloadBtn').disabled=false;
+ }catch(e){$('status').className='status err';$('status').textContent='Error: '+e.message}finally{$('processBtn').disabled=false}}
+$('downloadBtn').onclick=()=>{if(!outputRows.length)return;const exportRows=outputRows.map(({STATUS,...r})=>r);const ws=XLSX.utils.json_to_sheet(exportRows,{header:['SITE ID','NAMA JALAN','NOMOR RUMAH','LAT','LONG']});ws['!cols']=[{wch:14},{wch:34},{wch:16},{wch:18},{wch:18}];const wb=XLSX.utils.book_new();XLSX.utils.book_append_sheet(wb,ws,'HASIL MAPPING');XLSX.writeFile(wb,'HASIL_MAPPING_SITE_ID.xlsx')}
+</script>
+</body>
+</html>
