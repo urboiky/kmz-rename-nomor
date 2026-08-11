@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Format Angka 2 Digit</title>
+<style>
+  body{font-family:Arial,sans-serif;background:#f5f7fb;margin:0;padding:24px;color:#1f2937}
+  .wrap{max-width:900px;margin:auto}
+  .card{background:#fff;border-radius:14px;box-shadow:0 8px 25px rgba(0,0,0,.08);padding:22px}
+  h1{margin:0 0 8px;font-size:24px}
+  .note{font-size:14px;color:#4b5563;margin-bottom:18px;line-height:1.5}
+  .grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+  textarea{width:100%;height:360px;box-sizing:border-box;padding:14px;border:1px solid #cbd5e1;border-radius:10px;font:14px Consolas,monospace;resize:vertical}
+  .buttons{display:flex;gap:10px;flex-wrap:wrap;margin:16px 0}
+  button{border:0;border-radius:9px;padding:10px 16px;font-weight:700;cursor:pointer}
+  .primary{background:#2563eb;color:#fff}
+  .secondary{background:#e5e7eb;color:#111827}
+  .success{background:#16a34a;color:#fff}
+  .danger{background:#ef4444;color:#fff}
+  .status{font-size:13px;color:#475569;margin-top:8px}
+  @media(max-width:700px){.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="card">
+    <h1>Format Angka 2 Digit</h1>
+    <div class="note">
+      Rule: angka 1 digit jadi 2 digit, huruf/simbol tetap. Contoh: <b>1 → 01</b>, <b>1B → 01B</b>, <b>4-5 → 04-05</b>.
+      Jika diawali <b>?-</b>, teks dibiarkan apa adanya.
+    </div>
+
+    <div class="buttons">
+      <button class="primary" onclick="formatData()">Format</button>
+      <button class="secondary" onclick="copyResult()">Copy Hasil</button>
+      <button class="success" onclick="downloadTxt()">Download TXT</button>
+      <button class="danger" onclick="clearAll()">Clear</button>
+    </div>
+
+    <div class="grid">
+      <div>
+        <b>Input</b>
+        <textarea id="input" placeholder="Contoh:
+1
+9
+1B
+4-5
+?-1"></textarea>
+      </div>
+      <div>
+        <b>Hasil</b>
+        <textarea id="output" readonly></textarea>
+      </div>
+    </div>
+    <div id="status" class="status"></div>
+  </div>
+</div>
+
+<script>
+function formatToken(token){
+  const original = token;
+  const trimmed = token.trim();
+
+  if(trimmed.startsWith('?-')) return trimmed;
+
+  // Tambahkan 0 di depan setiap kelompok angka 1 digit.
+  // Contoh: 1B -> 01B, 4-5 -> 04-05, 10-5 -> 10-05
+  return trimmed.replace(/\d+/g, m => m.length === 1 ? '0' + m : m);
+}
+
+function formatData(){
+  const input = document.getElementById('input').value;
+  const lines = input.split(/\r?\n/);
+  const result = lines.map(line => {
+    if(line.trim()==='') return '';
+    return formatToken(line);
+  }).join('\n');
+
+  document.getElementById('output').value = result;
+  const nonEmpty = lines.filter(x => x.trim() !== '').length;
+  document.getElementById('status').textContent = nonEmpty + ' baris diproses.';
+}
+
+async function copyResult(){
+  const text = document.getElementById('output').value;
+  if(!text) return;
+  await navigator.clipboard.writeText(text);
+  document.getElementById('status').textContent = 'Hasil berhasil dicopy.';
+}
+
+function downloadTxt(){
+  const text = document.getElementById('output').value;
+  if(!text) return;
+  const blob = new Blob([text], {type:'text/plain;charset=utf-8'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = 'hasil_format_2_digit.txt';
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+function clearAll(){
+  document.getElementById('input').value='';
+  document.getElementById('output').value='';
+  document.getElementById('status').textContent='';
+}
+</script>
+</body>
+</html>
